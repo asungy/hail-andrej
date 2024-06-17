@@ -1,11 +1,14 @@
 { mkShell
 , jdk8
-, python312
+, python311
 }:
 
 let
-  python-env = python312.withPackages (pp: with pp;
-    [ numpy ]
+  python-env = python311.withPackages (pp: with pp;
+    [
+      numpy
+      jupyter
+    ]
   );
 in
 mkShell {
