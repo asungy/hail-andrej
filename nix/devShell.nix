@@ -1,23 +1,16 @@
 { mkShell
 , jdk8
-, python39
+, python312
 }:
 
 let
-  # CHANGEME define the list of Python packages to pull from nixpkgs
-  python-env = python39.withPackages (pp: with pp;
-    # for example
-    # [ pyspark numpy ]
-    [ ]
+  python-env = python312.withPackages (pp: with pp;
+    [ numpy ]
   );
 in
 mkShell {
-  # CHANGEME add other requirements
   buildInputs =
-    # for example
-    # [ jdk8 ]
     []
-    # injects the Python base
     ++ [ python-env ];
 
   NIX_PYTHONPATH = "${python-env}/${python-env.sitePackages}";
