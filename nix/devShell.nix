@@ -6,8 +6,10 @@
 let
   python-env = python311.withPackages (pp: with pp;
     [
-      numpy
+      graphviz
       jupyter
+      matplotlib
+      numpy
     ]
   );
 in
