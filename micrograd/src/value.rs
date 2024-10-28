@@ -71,7 +71,7 @@ impl Value {
         })
     }
 
-    fn backprop(value: &ValueRef) -> () {
+    fn backward(value: &ValueRef) -> () {
         let mut queue = std::collections::VecDeque::<ValueRef>::new();
         value.grad.set(1.);
         queue.push_back(value.clone());
@@ -79,14 +79,14 @@ impl Value {
             if let Some(op) = &current.op {
                 match op {
                     Op::Add(lhs, rhs) => {
-                        lhs.grad.set(current.grad.get());
-                        rhs.grad.set(current.grad.get());
+                        lhs.grad.set(lhs.grad.get() + current.grad.get());
+                        rhs.grad.set(rhs.grad.get() + current.grad.get());
                         queue.push_back(lhs.clone());
                         queue.push_back(rhs.clone());
                     },
                     Op::Mul(lhs, rhs) => {
-                        lhs.grad.set(current.grad.get() * rhs.data.get());
-                        rhs.grad.set(current.grad.get() * lhs.data.get());
+                        lhs.grad.set(lhs.grad.get() + (current.grad.get() * rhs.data.get()));
+                        rhs.grad.set(rhs.grad.get() + (current.grad.get() * lhs.data.get()));
                         queue.push_back(lhs.clone());
                         queue.push_back(rhs.clone());
                     },
@@ -107,6 +107,14 @@ impl Value {
 mod tests {
     use super::Value;
 
+    fn float_cmp(left: f64, right: f64, tolerance: f64) -> Result<(), String> {
+        if (left - right).abs() < tolerance {
+            Ok(())
+        } else {
+            Err(format!("float assertion `left == right` failed (tolerance={tolerance}).\n   left: {left}\n  right: {right}\n"))
+        }
+    }
+
     #[test]
     fn backprop() {
         let a = Value::new(2., "a");
@@ -121,7 +129,7 @@ mod tests {
         assert_eq!(d.data.get(), 4.);
         assert_eq!(l.data.get(), -8.);
 
-        Value::backprop(&l);
+        Value::backward(&l);
 
         assert_eq!(l.grad.get(), 1.);
         assert_eq!(d.grad.get(), -2.);
@@ -145,15 +153,47 @@ mod tests {
         let n = Value::add(&x1w1x2w2, &b, "n");
         let o = Value::tanh(&n, "o");
 
-        Value::backprop(&o);
+        Value::backward(&o);
 
-        assert_eq!(o.grad.get(), 1.);
-        assert!((n.grad.get() - 0.5).abs() < 0.00001);
-        assert!((x1w1.grad.get() - 0.5).abs() < 0.00001);
-        assert!((x2w2.grad.get() - 0.5).abs() < 0.00001);
-        assert!((x2.grad.get() - 0.5).abs() < 0.00001);
-        assert_eq!(w2.grad.get(), 0.);
-        assert!((x1.grad.get() + 1.5).abs() < 0.00001);
-        assert!((w1.grad.get() - 1.).abs() < 0.00001);
+        let tolerance = 0.00001;
+        float_cmp(n.grad.get(), 0.5, tolerance).unwrap_or_else(|err| panic!("{err}"));
+        float_cmp(x1w1.grad.get(), 0.5, tolerance).unwrap_or_else(|err| panic!("{err}"));
+        float_cmp(x2w2.grad.get(), 0.5, tolerance).unwrap_or_else(|err| panic!("{err}"));
+        float_cmp(x2.grad.get(), 0.5, tolerance).unwrap_or_else(|err| panic!("{err}"));
+        float_cmp(x1.grad.get(), -1.5, tolerance).unwrap_or_else(|err| panic!("{err}"));
+        float_cmp(w1.grad.get(), 1., tolerance).unwrap_or_else(|err| panic!("{err}"));
+    }
+
+    #[test]
+    fn doubly_referenced_addition() {
+        let a = Value::new(3., "a");
+        let b = Value::add(&a, &a, "b");
+        Value::backward(&b);
+        assert_eq!(a.grad.get(), 2.);
+    }
+
+    #[test]
+    fn doubly_referenced_multiplication() {
+        let a = Value::new(3., "a");
+        let b = Value::mul(&a, &a, "b");
+        Value::backward(&b);
+        assert_eq!(a.grad.get(), 6.);
+    }
+
+    #[test]
+    fn fully_connected_layer() {
+        let a = Value::new(-2., "a");
+        let b = Value::new(3., "b");
+        let c = Value::add(&a, &b, "c");
+        let d = Value::mul(&a, &b, "d");
+        let e = Value::mul(&c, &d, "f");
+        Value::backward(&e);
+
+        let tolerance = 0.00001;
+        float_cmp(a.grad.get(), -3., tolerance).unwrap_or_else(|err| panic!("{err}"));
+        float_cmp(b.grad.get(), -8., tolerance).unwrap_or_else(|err| panic!("{err}"));
+        float_cmp(c.grad.get(), -6., tolerance).unwrap_or_else(|err| panic!("{err}"));
+        float_cmp(d.grad.get(), 1., tolerance).unwrap_or_else(|err| panic!("{err}"));
+        float_cmp(e.grad.get(), 1., tolerance).unwrap_or_else(|err| panic!("{err}"));
     }
 }
