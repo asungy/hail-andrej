@@ -6,6 +6,7 @@ enum Op {
     Add(ValueRef, ValueRef),
     Mul(ValueRef, ValueRef),
     Tanh(ValueRef),
+    Exp(ValueRef),
 }
 
 type ValueRef = Rc<Value>;
@@ -71,6 +72,16 @@ impl Value {
         })
     }
 
+    fn exp(value: &ValueRef, label: &str) -> ValueRef {
+        let value = value.clone();
+        Rc::new(Value {
+            data: Cell::new(value.data.get().exp()),
+            grad: Cell::new(0.),
+            op: Some(Op::Exp(value)),
+            label: String::from(label),
+        })
+    }
+
     fn backward(value: &ValueRef) -> () {
         let mut queue = std::collections::VecDeque::<ValueRef>::new();
         value.grad.set(1.);
@@ -94,7 +105,11 @@ impl Value {
                         // Note: The derivative of tanh is 1-(tanh(x))^2.
                         // We already calculated `tanh` on the forward pass, which is the value of
                         // `current`, so we just square it.
-                        value.grad.set(current.grad.get() * (1.-current.data.get().powi(2)));
+                        value.grad.set(value.grad.get() + (current.grad.get() * (1.-current.data.get().powi(2))));
+                        queue.push_back(value.clone());
+                    },
+                    Op::Exp(value) => {
+                        value.grad.set(value.grad.get() + (current.grad.get() * value.data.get()));
                         queue.push_back(value.clone());
                     },
                 }
