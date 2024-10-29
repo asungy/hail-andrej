@@ -1,3 +1,1 @@
-struct Neuron {
-
-}
+struct Neuron {}

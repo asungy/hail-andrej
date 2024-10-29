@@ -1,2 +1,2 @@
-mod value;
 mod neuron;
+mod value;
