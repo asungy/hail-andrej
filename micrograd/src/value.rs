@@ -2,7 +2,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
-enum Op {
+pub enum Op {
     Add(ValueRef, ValueRef),
     Div(ValueRef, ValueRef),
     Exp(ValueRef),
@@ -12,10 +12,10 @@ enum Op {
     Tanh(ValueRef),
 }
 
-type ValueRef = Rc<Value>;
+pub type ValueRef = Rc<Value>;
 
 #[derive(Debug, Clone)]
-struct Value {
+pub struct Value {
     pub data: Cell<f64>,
     pub grad: Cell<f64>,
     pub op: Option<Op>,
@@ -33,7 +33,7 @@ impl std::fmt::Display for Value {
 }
 
 impl Value {
-    fn new(data: f64) -> ValueRef {
+    pub fn new(data: f64) -> ValueRef {
         Rc::new(Value {
             data: Cell::new(data),
             grad: Cell::new(0.),
