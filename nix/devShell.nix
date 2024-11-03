@@ -10,6 +10,7 @@ let
       jupyter
       matplotlib
       numpy
+      torch
     ]
   );
 in
